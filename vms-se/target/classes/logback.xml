@@ -1,0 +1,49 @@
+<configuration>
+
+	<!-- <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender"> 
+		<encoder> <pattern>%date %level [%file:%line] %msg%n</pattern> </encoder> 
+		</appender> -->
+
+	<appender name="FILE"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<encoder>
+			<pattern>%date %level [%file:%line] %msg%n</pattern>
+		</encoder>
+		 <file>app.log</file> 
+	<!--	<file>/home/ubuntu/parveen/api-meeto.log</file>-->
+		
+		
+		
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+		
+		<!-- <fileNamePattern>app.%d{yyyy-MM-dd}.log</fileNamePattern> -->
+		 <fileNamePattern>app.%d{yyyy-MM-dd}.log</fileNamePattern> 
+			<maxHistory>60</maxHistory>
+		</rollingPolicy>
+
+	</appender>
+
+
+	<logger name="org.springframework" level="INFO">
+	</logger>
+	
+	<logger name="com.zaxxer.hikari" level="INFO">
+	</logger>
+		
+
+	<logger name="org.apache.http" level="INFO">
+	</logger>
+
+<!-- 
+	<logger name="org.jboss.netty" level="WARN">
+	</logger>
+
+	<logger name="org.apache.activemq" level="WARN">
+	</logger>
+ -->	
+
+	<root level="DEBUG">
+		<appender-ref ref="FILE" />
+	</root>
+
+</configuration>
