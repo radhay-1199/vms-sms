@@ -2,6 +2,7 @@ package vms.se.db;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Date;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -11,32 +12,36 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
-import vms.se.bean.AccountRequest;
+import vms.se.bean.AccountTxRequest;
 
 @Repository
 public class AccountRequestRepository {
 	
 	private final Logger log = LoggerFactory.getLogger(getClass());
 	@Autowired
-	private JdbcTemplate jdbcTemplate;
+	private JdbcTemplate jdbc;
 	
-	
-	public List<AccountRequest> getPendingRequest() {
-		String query = "select * from vms_charging_request where status =0" ;
+		
+	public List<AccountTxRequest> getPendingRequest() {
+		String query = "select * from vms_charging_request where next_retry_time < now()";
 		log.info(query);
-		return jdbcTemplate.query( query, reqDataMapper);
+		return jdbc.query( query, reqDataMapper);
 	}
 	
 	public int deleteRequest(int id) {
 		String query = "delete from vms_charging_request where id="+id ;
 		log.info(query);
-		return jdbcTemplate.update(query);
+		return jdbc.update(query);
 	}
 	
-	
-	private final RowMapper<AccountRequest> reqDataMapper = new RowMapper<AccountRequest>() {
-		public AccountRequest mapRow(ResultSet rs, int i) throws SQLException {
-			AccountRequest rec = new AccountRequest();
+	public int updateStatus(int id , String remark , Date nextRetryTime) {
+		String query= "update vms_charging_request set remark = ? , next_retry_time = ? where id  = ? ";
+		return jdbc.update(query , new Object[] {remark , new java.sql.Timestamp(nextRetryTime.getTime()) , id});
+	}
+		
+	private final RowMapper<AccountTxRequest> reqDataMapper = new RowMapper<AccountTxRequest>() {
+		public AccountTxRequest mapRow(ResultSet rs, int i) throws SQLException {
+			AccountTxRequest rec = new AccountTxRequest();
 			rec.setId(rs.getInt("id"));
 			rec.setMsisdn(rs.getString("msisdn"));
 			rec.setStatus(rs.getInt("status"));
@@ -47,5 +52,4 @@ public class AccountRequestRepository {
 			
 		}
 	};
-	
 }

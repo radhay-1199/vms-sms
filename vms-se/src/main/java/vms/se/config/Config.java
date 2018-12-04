@@ -32,6 +32,96 @@ public class Config {
 	@Value("${vms.hlr.password}")
 	private String hlrPassword;
 */
+	@Value("${vms.balance.commandId}")
+	private String balanceCommandId;
+	
+	@Value("${vms.balance.remoteAddress}")
+	private String balanceRemoteAddress;
+	
+	@Value("${vms.balance.Version}")
+	private String balanceVersion;
+	
+	@Value("${vms.balance.RequestType}")
+	private String balanceRequestType;
+	
+	
+	@Value("${vms.charging.RequestType}")
+	private String chargingRequestType;
+	
+	@Value("${vms.charging.remark}")
+	private String chargingRemark;
+	
+	
+	@Value("${vms.charging.ac.type}")
+	private String chargingAcType;
+	
+	@Value("${vms.charging.commandId}")
+	private String chargingCommandId;
+	
+	public String getChargingCommandId() {
+		return chargingCommandId;
+	}
+
+	public void setChargingCommandId(String chargingCommandId) {
+		this.chargingCommandId = chargingCommandId;
+	}
+
+	public String getChargingAcType() {
+		return chargingAcType;
+	}
+
+	public void setChargingAcType(String chargingAcType) {
+		this.chargingAcType = chargingAcType;
+	}
+
+	public String getBalanceCommandId() {
+		return balanceCommandId;
+	}
+
+	public String getChargingRequestType() {
+		return chargingRequestType;
+	}
+
+	public void setChargingRequestType(String chargingRequestType) {
+		this.chargingRequestType = chargingRequestType;
+	}
+
+	public String getChargingRemark() {
+		return chargingRemark;
+	}
+
+	public void setChargingRemark(String chargingRemark) {
+		this.chargingRemark = chargingRemark;
+	}
+
+	public void setBalanceCommandId(String balanceCommandId) {
+		this.balanceCommandId = balanceCommandId;
+	}
+
+	public String getBalanceRemoteAddress() {
+		return balanceRemoteAddress;
+	}
+
+	public void setBalanceRemoteAddress(String balanceRemoteAddress) {
+		this.balanceRemoteAddress = balanceRemoteAddress;
+	}
+
+	public String getBalanceVersion() {
+		return balanceVersion;
+	}
+
+	public void setBalanceVersion(String balanceVersion) {
+		this.balanceVersion = balanceVersion;
+	}
+
+	public String getBalanceRequestType() {
+		return balanceRequestType;
+	}
+
+	public void setBalanceRequestType(String balanceRequestType) {
+		this.balanceRequestType = balanceRequestType;
+	}
+
 	@Value("${vms.cbs.username}")
 	private String cbsUsername;
 

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import vms.se.bean.HLRRequest;
 import vms.se.bean.HLRResponse;
 import vms.se.config.Config;
+import vms.se.config.Constants;
 import vms.se.db.HlrReqRepository;
 import vms.se.util.HttpUtil;
 
@@ -33,13 +34,12 @@ public class ProcessHLRRequest implements Runnable {
 
 				List<HLRRequest> reqList = reqRepo.getPendingRequest();
 				for (HLRRequest req : reqList) {
-					if (req.getAction() == 1) {
+					if (req.getAction() == Constants.HLR_SUB) {
 						processSubReq(req);
-					} else if (req.getAction() == 2) {
+					} else if (req.getAction() == Constants.HLR_UNSUB) {
 						processUnSubReq(req);
 					}
 				}
-
 			} catch (Exception exp) {
 				exp.printStackTrace();
 			}
@@ -55,7 +55,7 @@ public class ProcessHLRRequest implements Runnable {
 		try {
 
 			String subUri = config.getUnSubApiURL();
-			
+
 			subUri = subUri.replaceAll("<MSISDN>", req.getMsisdn());
 			log.info(subUri);
 			String respStr = httpUtil.submitRequest(subUri);
@@ -63,16 +63,15 @@ public class ProcessHLRRequest implements Runnable {
 			HLRResponse hlrResp = null;
 			if (respStr != null) {
 				hlrResp = parseResponse(respStr);
-				
+
 				log.info(hlrResp.toString());
-				reqRepo.deleteRequest(req.getMsisdn(), 2) ;
-				
-				
-				/*if (hlrResp.getOutputCode().equalsIgnoreCase("SUCCESS0001")) {
-					reqRepo.deleteRequest(req.getMsisdn(), 1);
-				} else {
-					log.info("Failed UnSub|" + hlrResp.toString());
-				}*/
+				reqRepo.deleteRequest(req.getMsisdn(), 2);
+
+				/*
+				 * if (hlrResp.getOutputCode().equalsIgnoreCase("SUCCESS0001")) {
+				 * reqRepo.deleteRequest(req.getMsisdn(), 1); } else { log.info("Failed UnSub|"
+				 * + hlrResp.toString()); }
+				 */
 			}
 		} catch (Exception exp) {
 			exp.printStackTrace();
@@ -91,13 +90,13 @@ public class ProcessHLRRequest implements Runnable {
 			if (respStr != null) {
 				hlrResp = parseResponse(respStr);
 				log.info(hlrResp.toString());
-				reqRepo.deleteRequest( subReq.getMsisdn(), 1 );
-				
-				
-				if(hlrResp.getOutputMessage() != null && hlrResp.getOutputMessage().equalsIgnoreCase("Already have the service"))
-					reqRepo.deleteRequest( subReq.getMsisdn(), 1 ) ;
-				
-				if ( hlrResp.getOutputCode().equalsIgnoreCase("SUCCESS0002")) {
+				reqRepo.deleteRequest(subReq.getMsisdn(), 1);
+
+				if (hlrResp.getOutputMessage() != null
+						&& hlrResp.getOutputMessage().equalsIgnoreCase("Already have the service"))
+					reqRepo.deleteRequest(subReq.getMsisdn(), 1);
+
+				if (hlrResp.getOutputCode().equalsIgnoreCase("SUCCESS0002")) {
 					reqRepo.deleteRequest(subReq.getMsisdn(), 1);
 				} else
 					log.info("Failed Sub|" + hlrResp.toString());
@@ -127,16 +126,16 @@ public class ProcessHLRRequest implements Runnable {
 
 			HLRResponse hlrResp = new HLRResponse();
 			hlrResp.setMsisdn(msisdn);
-			
+
 			if (output != null) {
-				//hlrResp.setOutputCode(output.substring(0, output.indexOf(":")));
-				//hlrResp.setOutputMessage(output.substring(output.indexOf(":") + 1));
+				// hlrResp.setOutputCode(output.substring(0, output.indexOf(":")));
+				// hlrResp.setOutputMessage(output.substring(output.indexOf(":") + 1));
 				hlrResp.setOutputMessage(output);
 			}
-			
+
 			if (output2 != null) {
-				//hlrResp.setOutput2Code(output2.substring(0, output2.indexOf(":")));
-				//hlrResp.setOutput2Message(output2.substring(output.indexOf(":") + 1));
+				// hlrResp.setOutput2Code(output2.substring(0, output2.indexOf(":")));
+				// hlrResp.setOutput2Message(output2.substring(output.indexOf(":") + 1));
 				hlrResp.setOutput2Message(output2);
 			}
 			return hlrResp;
