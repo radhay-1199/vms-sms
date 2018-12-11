@@ -3,11 +3,13 @@ package vms.se.bean;
 import java.util.Date;
 
 public class VmsUser {
+	
 	private String msisdn 	;
 	private String packId  	;
 	private int status 		;
 	private int hlrFlag		;
 	private Date nextRenewalDate ;
+	
 	public String getMsisdn() {
 		return msisdn;
 	}
