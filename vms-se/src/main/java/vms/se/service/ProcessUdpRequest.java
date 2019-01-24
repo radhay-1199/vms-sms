@@ -65,6 +65,7 @@ public class ProcessUdpRequest implements Runnable {
 
 		while (true) {
 			try {
+				
 				String req = bQueue.take();
 				if (req == null)
 					continue;
