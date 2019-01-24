@@ -48,7 +48,11 @@ public class HLRResponse {
 	public void setOutput2Message(String output2Message) {
 		this.output2Message = output2Message;
 	}
-	
-	
+	@Override
+	public String toString() {
+		return "HLRResponse [respCode=" + respCode + ", msisdn=" + msisdn + ", outputCode=" + outputCode
+				+ ", outputMessage=" + outputMessage + ", output2Code=" + output2Code + ", output2Message="
+				+ output2Message + "]";
+	}
 	
 }

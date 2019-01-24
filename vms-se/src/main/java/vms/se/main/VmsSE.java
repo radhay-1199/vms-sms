@@ -17,6 +17,8 @@ import com.huawei.bme.cbsinterface.cbs.businessmgr.CBSInterfaceBusinessMgrServic
 
 import vms.se.service.ProcessAccountRequest;
 import vms.se.service.ProcessHLRRequest;
+import vms.se.service.ProcessRenewalRequest;
+import vms.se.service.ProcessUdpRequest;
 import vms.se.util.LogOutputStream;
 import vms.se.util.MyHandler;
 import vms.se.util.MyHandlerResolver;
@@ -39,6 +41,13 @@ public class VmsSE {
 
 		ProcessAccountRequest accReq = ctx.getBean(ProcessAccountRequest.class);
 		new Thread(accReq).start();
+		
+		ProcessRenewalRequest renewalReq = ctx.getBean(ProcessRenewalRequest.class);
+		new Thread(renewalReq).start();
+		
+		ProcessUdpRequest udpReq  = ctx.getBean(ProcessUdpRequest.class);
+		new Thread(udpReq).start();
+		
 
 		/*
 		 * CheckAndGetEvents check = ctx.getBean(CheckAndGetEvents.class); new

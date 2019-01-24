@@ -7,7 +7,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 @Component
-@PropertySource({ "classpath:vms.properties" })
+@PropertySource({ "file:./config/vms.properties" })
+
 public class Config {
 
 	/*
@@ -26,38 +27,104 @@ public class Config {
 	@Value("${vms.charging.url}")
 	private String chargingUrl;
 
-/*	@Value("${vms.hlr.username}")
-	private String hlrUsername;
-
-	@Value("${vms.hlr.password}")
-	private String hlrPassword;
-*/
+	/*
+	 * @Value("${vms.hlr.username}") private String hlrUsername;
+	 * 
+	 * @Value("${vms.hlr.password}") private String hlrPassword;
+	 */
 	@Value("${vms.balance.commandId}")
 	private String balanceCommandId;
-	
+
 	@Value("${vms.balance.remoteAddress}")
 	private String balanceRemoteAddress;
-	
+
 	@Value("${vms.balance.Version}")
 	private String balanceVersion;
-	
+
 	@Value("${vms.balance.RequestType}")
 	private String balanceRequestType;
-	
-	
+
 	@Value("${vms.charging.RequestType}")
 	private String chargingRequestType;
-	
+
 	@Value("${vms.charging.remark}")
 	private String chargingRemark;
-	
-	
+
 	@Value("${vms.charging.ac.type}")
 	private String chargingAcType;
-	
+
 	@Value("${vms.charging.commandId}")
 	private String chargingCommandId;
-	
+
+	@Value("${sub.success.msg.text}")
+	private String subSuccessMsgText;
+
+	@Value("${sub.lowbalance.msg.text}")
+	private String subLowBalanceMsgText;
+
+	@Value("${renewal.alert.msg.text}")
+	private String renewalAlertMsgText;
+
+	@Value("${renewal.success.msg.text}")
+	private String renewalSuccessMsgText;
+
+	@Value("${unsub.success.msg.text}")
+	private String unsubSuccessMsgText;
+
+	@Value("${sms.submit.url}")
+	private String smsSubmitUrl;
+
+	@Value("${api.udp.port}")
+	private int apiUdpPort;
+
+	public String getSmsSubmitUrl() {
+		return smsSubmitUrl;
+	}
+
+	public void setSmsSubmitUrl(String smsSubmitUrl) {
+		this.smsSubmitUrl = smsSubmitUrl;
+	}
+
+	public String getSubSuccessMsgText() {
+		return subSuccessMsgText;
+	}
+
+	public void setSubSuccessMsgText(String subSuccessMsgText) {
+		this.subSuccessMsgText = subSuccessMsgText;
+	}
+
+	public String getSubLowBalanceMsgText() {
+		return subLowBalanceMsgText;
+	}
+
+	public void setSubLowBalanceMsgText(String subLowBalanceMsgText) {
+		this.subLowBalanceMsgText = subLowBalanceMsgText;
+	}
+
+	public String getRenewalAlertMsgText() {
+		return renewalAlertMsgText;
+	}
+
+	public void setRenewalAlertMsgText(String renewalAlertMsgText) {
+		this.renewalAlertMsgText = renewalAlertMsgText;
+	}
+
+	public String getRenewalSuccessMsgText() {
+		return renewalSuccessMsgText;
+	}
+
+	public void setRenewalSuccessMsgText(String renewalSuccessMsgText) {
+		this.renewalSuccessMsgText = renewalSuccessMsgText;
+	}
+
+	public String getUnsubSuccessMsgText() {
+		return unsubSuccessMsgText;
+	}
+
+	public void setUnsubSuccessMsgText(String unsubSuccessMsgText) {
+		this.unsubSuccessMsgText = unsubSuccessMsgText;
+	}
+
 	public String getChargingCommandId() {
 		return chargingCommandId;
 	}
@@ -160,22 +227,17 @@ public class Config {
 		this.chargingUrl = chargingUrl;
 	}
 
-/*	public String getHlrUsername() {
-		return hlrUsername;
-	}
-
-	public void setHlrUsername(String hlrUsername) {
-		this.hlrUsername = hlrUsername;
-	}
-
-	public String getHlrPassword() {
-		return hlrPassword;
-	}
-
-	public void setHlrPassword(String hlrPassword) {
-		this.hlrPassword = hlrPassword;
-	}
-*/
+	/*
+	 * public String getHlrUsername() { return hlrUsername; }
+	 * 
+	 * public void setHlrUsername(String hlrUsername) { this.hlrUsername =
+	 * hlrUsername; }
+	 * 
+	 * public String getHlrPassword() { return hlrPassword; }
+	 * 
+	 * public void setHlrPassword(String hlrPassword) { this.hlrPassword =
+	 * hlrPassword; }
+	 */
 	public String getCbsUsername() {
 		return cbsUsername;
 	}
@@ -190,6 +252,14 @@ public class Config {
 
 	public void setCbsPassword(String cbsPassword) {
 		this.cbsPassword = cbsPassword;
+	}
+
+	public int getApiUdpPort() {
+		return apiUdpPort;
+	}
+
+	public void setApiUdpPort(int apiUdpPort) {
+		this.apiUdpPort = apiUdpPort;
 	}
 
 }

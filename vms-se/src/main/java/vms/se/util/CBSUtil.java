@@ -28,6 +28,7 @@ import com.huawei.bme.cbsinterface.common.SessionEntityType;
 
 import vms.se.bean.AccountTxRequest;
 import vms.se.bean.AccountTxResponse;
+import vms.se.bean.PackDetails;
 import vms.se.config.Config;
 
 @Service
@@ -41,7 +42,7 @@ public class CBSUtil {
 	@Autowired
 	private CBSInterfaceAccountMgrService service;
 
-	public AccountTxResponse accountTx(AccountTxRequest req) {
+	public AccountTxResponse accountTx(AccountTxRequest req , PackDetails pack) {
 		AccountTxResponse accTxResp = new AccountTxResponse();
 		try {
 
@@ -66,6 +67,7 @@ public class CBSUtil {
 			sesstype.setName(config.getCbsUsername());
 			sesstype.setPassword(config.getCbsPassword());
 			sesstype.setRemoteAddress("127.0.0.1");
+			
 
 			long serialno = System.currentTimeMillis();
 			String serialnum = String.valueOf(serialno).substring(3);
@@ -74,29 +76,34 @@ public class CBSUtil {
 			reqHead.setCommandId(config.getChargingCommandId());// AdjustAccount
 			reqHead.setVersion(config.getBalanceVersion());
 
-			// reqHead.setOperatorID( userType );
-
+			reqHead.setOperatorID( "VMS" );
 			reqHead.setTransactionId(req.getTid());
 			reqHead.setSequenceId("" + req.getId());
 			reqHead.setRequestType(config.getChargingRequestType());
 			reqHead.setSessionEntity(sesstype);
-			reqHead.setSerialNo(serialnum);
-			reqHead.setRemark(config.getChargingRemark());
+			
+			reqHead.setSerialNo( pack.getName() + serialnum );
+			reqHead.setRemark( pack.getRemark() );
 
 			adjustAccReq.setSubscriberNo(req.getMsisdn());
 			adjustAccReq.setOperateType(2);
-			adjustAccReq.setAdditionalInfo(config.getChargingRemark());
-			adjustAccReq.setSPCode("0");
-
+			
+			if(req.getAction() == 1)
+				adjustAccReq.setAdditionalInfo( "SUB " + pack.getName() );
+			else
+				adjustAccReq.setAdditionalInfo( "RENEWAL " + pack.getName());
+				
+			adjustAccReq.setSPCode("0") ;
+			
 			ModifyAcctFeeList list = new ModifyAcctFeeList();
 			List<ModifyAcctFeeType> listB = list.getModifyAcctFee();
 			ModifyAcctFeeType ele = new ModifyAcctFeeType();
 			ele.setAccountType(config.getChargingAcType());
-			ele.setCurrAcctChgAmt(req.getAmount());
+			ele.setCurrAcctChgAmt( req.getAmount() * 100 );
 			listB.add(ele);
 
 			adjustAccReq.setModifyAcctFeeList(list);
-			adjustAccReq.setNotifyFlag(1);// 1
+			adjustAccReq.setNotifyFlag(0);// 1
 			adjustAccReqMsg.setRequestHeader(reqHead);
 			adjustAccReqMsg.setAdjustAccountRequest(adjustAccReq);
 			AdjustAccountResultMsg adjustAccResultMsg = porttype.adjustAccount(adjustAccReqMsg);
@@ -105,7 +112,8 @@ public class CBSUtil {
 				ResultHeader resultHeader = adjustAccResultMsg.getResultHeader();
 				accTxResp.setCode(resultHeader.getResultCode());
 				accTxResp.setDesc(resultHeader.getResultDesc());
-				log.debug("msisdn|RespCode=" + accTxResp.getCode() + "|Desc" + accTxResp.getDesc());
+				log.debug("msisdn|RespCode=" + accTxResp.getCode() + "|Desc=" + accTxResp.getDesc());
+				
 			} else {
 				accTxResp.setCode("2");
 				accTxResp.setDesc("Null");

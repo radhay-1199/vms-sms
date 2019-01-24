@@ -1,5 +1,7 @@
 package vms.se.service;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -9,10 +11,15 @@ import org.springframework.stereotype.Service;
 
 import vms.se.bean.HLRRequest;
 import vms.se.bean.HLRResponse;
+import vms.se.bean.PackDetails;
+import vms.se.bean.VmsUser;
 import vms.se.config.Config;
 import vms.se.config.Constants;
 import vms.se.db.HlrReqRepository;
+import vms.se.db.PackDetailRepository;
+import vms.se.db.VmsUserRepository;
 import vms.se.util.HttpUtil;
+import vms.se.util.SmsUtil;
 
 @Service
 public class ProcessHLRRequest implements Runnable {
@@ -26,6 +33,15 @@ public class ProcessHLRRequest implements Runnable {
 
 	@Autowired
 	private HttpUtil httpUtil;
+
+	@Autowired
+	private VmsUserRepository vmsUserRepo;
+
+	@Autowired
+	private SmsUtil smsUtil;
+
+	@Autowired
+	private PackDetailRepository packRepo;
 
 	@Override
 	public void run() {
@@ -45,7 +61,7 @@ public class ProcessHLRRequest implements Runnable {
 			}
 
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(15000);
 			} catch (Exception e) {
 			}
 		}
@@ -56,22 +72,43 @@ public class ProcessHLRRequest implements Runnable {
 
 			String subUri = config.getUnSubApiURL();
 
-			subUri = subUri.replaceAll("<MSISDN>", req.getMsisdn());
+			if (req.getMsisdn().startsWith("93"))
+				subUri = subUri.replaceAll("<MSISDN>", req.getMsisdn());
+			else
+				subUri = subUri.replaceAll("<MSISDN>", "93" + req.getMsisdn());
+
 			log.info(subUri);
+
+			VmsUser user = vmsUserRepo.getUserDetails( req.getMsisdn() );
+			if(user == null) {
+				log.info("User Details not found for msisdn="+req.getMsisdn());
+				return ; 
+			}
+			
+			PackDetails pack = packRepo.getPackDetails(user.getPackId());
+
 			String respStr = httpUtil.submitRequest(subUri);
 
 			HLRResponse hlrResp = null;
 			if (respStr != null) {
 				hlrResp = parseResponse(respStr);
-
 				log.info(hlrResp.toString());
 				reqRepo.deleteRequest(req.getMsisdn(), 2);
+
+				if (hlrResp.getOutputMessage() != null && hlrResp.getOutputMessage().indexOf("SUCCESS0002") != -1) {
+					vmsUserRepo.deleteUser(req.getMsisdn());
+					smsUtil.sendSMS(req.getMsisdn(), config.getUnsubSuccessMsgText(), pack);
+				} else {
+					log.info("Cant Understand HLR Response=" + hlrResp.getOutputMessage());
+
+				}
 
 				/*
 				 * if (hlrResp.getOutputCode().equalsIgnoreCase("SUCCESS0001")) {
 				 * reqRepo.deleteRequest(req.getMsisdn(), 1); } else { log.info("Failed UnSub|"
 				 * + hlrResp.toString()); }
 				 */
+
 			}
 		} catch (Exception exp) {
 			exp.printStackTrace();
@@ -82,30 +119,65 @@ public class ProcessHLRRequest implements Runnable {
 		try {
 
 			String subUri = config.getSubApiURL();
-			subUri = subUri.replaceAll("<MSISDN>", subReq.getMsisdn());
+
+			if (subReq.getMsisdn().startsWith("93"))
+				subUri = subUri.replaceAll("<MSISDN>", subReq.getMsisdn());
+			else
+				subUri = subUri.replaceAll("<MSISDN>", "93" + subReq.getMsisdn());
+
+			// subUri = subUri.replaceAll("<MSISDN>", subReq.getMsisdn());
+
 			log.info(subUri);
+
+			PackDetails pack = packRepo.getPackDetails(subReq.getPackId());
 			String respStr = httpUtil.submitRequest(subUri);
 
 			HLRResponse hlrResp = null;
 			if (respStr != null) {
 				hlrResp = parseResponse(respStr);
 				log.info(hlrResp.toString());
-				reqRepo.deleteRequest(subReq.getMsisdn(), 1);
+
+				// reqRepo.deleteRequest(subReq.getMsisdn(), 1);
 
 				if (hlrResp.getOutputMessage() != null
-						&& hlrResp.getOutputMessage().equalsIgnoreCase("Already have the service"))
+						&& hlrResp.getOutputMessage().indexOf("Already have the service") != -1) {
+					vmsUserRepo.updateHLRStatus(subReq.getMsisdn(), 1);
 					reqRepo.deleteRequest(subReq.getMsisdn(), 1);
+					smsUtil.sendSMS(subReq.getMsisdn(), config.getSubSuccessMsgText(), pack);
 
-				if (hlrResp.getOutputCode().equalsIgnoreCase("SUCCESS0002")) {
+					return;
+				}
+
+				if (hlrResp.getOutputCode().indexOf("SUCCESS0002") != -1) {
+					vmsUserRepo.updateHLRStatus(subReq.getMsisdn(), 1);
 					reqRepo.deleteRequest(subReq.getMsisdn(), 1);
-				} else
+					smsUtil.sendSMS(subReq.getMsisdn(), config.getSubSuccessMsgText(), pack);
+
+				} else {
+
 					log.info("Failed Sub|" + hlrResp.toString());
+					Date nextRetryTime = addMinuteInDate(15);
+					reqRepo.updateStatus(subReq.getMsisdn(), hlrResp.getOutputMessage(), nextRetryTime);
+
+				}
 
 			}
 		} catch (Exception exp) {
 			exp.printStackTrace();
 		}
 	}
+	public Date addMinuteInDate(int min) {
+		Calendar cal = null;
+		try {
+			cal = Calendar.getInstance();
+			cal.add(Calendar.MINUTE, min);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return cal.getTime();
+
+	}
+
 
 	public HLRResponse parseResponse(String resp) {
 		try {
