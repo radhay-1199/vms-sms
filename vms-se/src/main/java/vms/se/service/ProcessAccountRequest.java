@@ -11,12 +11,15 @@ import org.springframework.stereotype.Service;
 
 import vms.se.bean.AccountTxRequest;
 import vms.se.bean.AccountTxResponse;
+import vms.se.bean.HLRResponse;
 import vms.se.bean.PackDetails;
+import vms.se.bean.ReportData;
 import vms.se.config.Config;
 import vms.se.config.Constants;
 import vms.se.db.AccountRequestRepository;
 import vms.se.db.HlrReqRepository;
 import vms.se.db.PackDetailRepository;
+import vms.se.db.VmsReportRepository;
 import vms.se.db.VmsUserRepository;
 import vms.se.util.CBSUtil;
 import vms.se.util.HttpUtil;
@@ -48,24 +51,34 @@ public class ProcessAccountRequest implements Runnable {
 	@Autowired
 	private Config config;
 
+	@Autowired
+	private VmsReportRepository vmsReportRepo;
+	
+	@Autowired
+	private ProcessHLRRequest processHLRRequest ; 
+
 	@Override
 	public void run() {
 		while (true) {
 			try {
 				List<AccountTxRequest> reqList = accRepo.getPendingRequest();
 				for (AccountTxRequest req : reqList) {
-					if (req.getAction() == 1) {
+					switch (req.getAction()) {
+					case Constants.SUB_REQ:
 						processSubRequest(req);
-					} else if (req.getAction() == 2) {
+						break;
+					case Constants.BAL_REQ:
 						processBalanceReq(req);
-					} else if (req.getAction() == 3) {
+						break;
+					case Constants.UNSUB_REQ:
 						processUnSubRequest(req);
-						// UnSub Request
-
-					} else if (req.getAction() == 4) {
-						// Renewal Request
+						break;
+					default:
+						log.info("Unknown Action in Process Account Request,Action Value=" + req.getAction());
+						break;
 					}
 				}
+
 			} catch (Exception exp) {
 				exp.printStackTrace();
 			}
@@ -80,7 +93,9 @@ public class ProcessAccountRequest implements Runnable {
 
 	public void processUnSubRequest(AccountTxRequest req) {
 		log.info(req.toString());
-		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId() , Constants.HLR_UNSUB , req.getChannel() );
+		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB, req.getChannel());
+		vmsReportRepo.insertIntoReports(
+				new ReportData(req.getMsisdn(), Constants.UNSUB_REQ, 1, req.getChannel(), "success", req.getTid()));
 		accRepo.deleteRequest(req.getId());
 	}
 
@@ -95,12 +110,23 @@ public class ProcessAccountRequest implements Runnable {
 		if (pack == null) {
 			// Pack Details not found
 			log.info("Pack Details not found for id=" + req.getPackId());
+			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
+					"PackInfo Not Found -" + req.getPackId(), req.getTid()));
 			accRepo.deleteRequest(req.getId());
 			return;
 		}
-
-		boolean success = false;
+		
+		/*HLRResponse hlrResp = processHLRRequest.processRequest(req.getMsisdn() , Constants.HLR_SUB );
+		if(hlrResp == null || hlrResp.getOutputCode().indexOf("SUCCESS") != -1 ) {
+			accRepo.deleteRequest(req.getId());
+			return ; 
+		}*/
+		
+		
+		boolean success = false ;
 		AccountTxResponse txResp = cbsUtil.getBalance(req);
+		req.setAmount( pack.getPrice() * 100 );
+		
 		if (txResp.getBalance() > req.getAmount()) {
 
 			AccountTxResponse chargResp = cbsUtil.accountTx(req, pack);
@@ -109,16 +135,22 @@ public class ProcessAccountRequest implements Runnable {
 			}
 
 		} else {
+			
 			smsUtil.sendSMS(req.getMsisdn(), config.getSubLowBalanceMsgText(), pack);
-
+			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
+					"Low Balance -" + txResp.getBalance(), req.getTid()));
+			//processHLRRequest.processRequest(req.getMsisdn() , Constants.HLR_UNSUB );
+			
 		}
 
 		if (success) {
 			// accRepo.deleteRequest(req.getId());
+			vmsReportRepo.insertIntoReports(
+					new ReportData(req.getMsisdn(), req.getAction(), 1, req.getChannel(), "success", req.getTid()));
+
 			Date nextRenewal = addDayInDate(pack.getValidityDays());
-			
-			vmsUserRepo.insertIntoUsers( req.getMsisdn(), req.getPackId() , nextRenewal , req.getLang() , req.getChannel() );
-			hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_SUB , req.getChannel() );
+			vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(), req.getChannel());
+			hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_SUB, req.getChannel());
 
 		} else {
 			// Retry After Some Time
@@ -140,10 +172,11 @@ public class ProcessAccountRequest implements Runnable {
 		accRepo.deleteRequest(req.getId());
 	}
 
-	public void addToHlrRquestForUnsub(AccountTxRequest req) {
-		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId() , Constants.HLR_UNSUB , req.getChannel() );
+	/*public void addToHlrRquestForUnsub(AccountTxRequest req) {
+		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB, req.getChannel());
 		accRepo.deleteRequest(req.getId());
-	}
+	}*/
+
 	public Date addDayInDate(int days) {
 		Calendar cal = null;
 		try {
@@ -155,4 +188,6 @@ public class ProcessAccountRequest implements Runnable {
 		return cal.getTime();
 
 	}
+	
+	
 }

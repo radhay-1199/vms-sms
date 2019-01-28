@@ -12,6 +12,7 @@ vms\se\bean\HLRResponse.class
 vms\se\config\Constants.class
 vms\se\util\SoapUtil.class
 vms\se\util\UdpServer.class
+vms\se\bean\ReportData.class
 vms\se\bean\AccountTxRequest.class
 vms\se\db\HlrReqRepository.class
 vms\se\db\VmsUserRepository$1.class
@@ -22,6 +23,7 @@ vms\se\util\LogOutputStream.class
 vms\se\db\AccountRequestRepository.class
 vms\se\bean\AccountTxResponse.class
 vms\se\bean\PackDetails.class
+vms\se\db\VmsReportRepository.class
 vms\se\service\ProcessHLRRequest.class
 vms\se\db\VmsRenewalRepository$1.class
 vms\se\config\Config.class

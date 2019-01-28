@@ -99,7 +99,7 @@ public class CBSUtil {
 			List<ModifyAcctFeeType> listB = list.getModifyAcctFee();
 			ModifyAcctFeeType ele = new ModifyAcctFeeType();
 			ele.setAccountType(config.getChargingAcType());
-			ele.setCurrAcctChgAmt( req.getAmount() * 100 );
+			ele.setCurrAcctChgAmt( req.getAmount() );
 			listB.add(ele);
 
 			adjustAccReq.setModifyAcctFeeList(list);

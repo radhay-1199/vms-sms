@@ -17,11 +17,13 @@ import org.springframework.stereotype.Service;
 import vms.se.bean.AccountTxRequest;
 import vms.se.bean.AccountTxResponse;
 import vms.se.bean.PackDetails;
+import vms.se.bean.ReportData;
 import vms.se.config.Config;
 import vms.se.config.Constants;
 import vms.se.db.AccountRequestRepository;
 import vms.se.db.HlrReqRepository;
 import vms.se.db.PackDetailRepository;
+import vms.se.db.VmsReportRepository;
 import vms.se.db.VmsUserRepository;
 import vms.se.util.CBSUtil;
 import vms.se.util.HttpUtil;
@@ -56,6 +58,9 @@ public class ProcessUdpRequest implements Runnable {
 	@Autowired
 	private Config config;
 
+	@Autowired
+	private VmsReportRepository vmsReportRepo;
+
 	@Override
 	public void run() {
 
@@ -65,7 +70,7 @@ public class ProcessUdpRequest implements Runnable {
 
 		while (true) {
 			try {
-				
+
 				String req = bQueue.take();
 				if (req == null)
 					continue;
@@ -92,6 +97,7 @@ public class ProcessUdpRequest implements Runnable {
 					String msisdn = info[1];
 					String respIp = info[2];
 					String ressPortStr = info[3];
+					
 					int status = processUnSubRequest(msisdn);
 					sendOverUdp(msisdn + "#" + status, respIp, Integer.parseInt(ressPortStr));
 				}
@@ -107,18 +113,23 @@ public class ProcessUdpRequest implements Runnable {
 
 	public int processUnSubRequest(String msisdn) {
 		log.info("processUnSubRequest|" + msisdn);
-		hlrReqRepo.insertIntoHlrRequest(msisdn, "P", Constants.HLR_UNSUB , "IVR" );
+		hlrReqRepo.insertIntoHlrRequest(msisdn, "P", Constants.HLR_UNSUB, "IVR");
+		vmsReportRepo.insertIntoReports(
+				new ReportData(msisdn , Constants.UNSUB_REQ , 1, "IVR" , "success" , "API-" + System.currentTimeMillis() ));
 		return 1;
 	}
 
 	public int processSubRequest(AccountTxRequest req) {
 
 		log.info(req.toString());
+		req.setChannel("IVR");
 
 		PackDetails pack = packRepo.getPackDetails(req.getPackId());
 		if (pack == null) {
 			// Pack Details not found
 			log.info("Pack Details not found for id=" + req.getPackId());
+			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
+					"PackInfo Not Found -" + req.getPackId(), req.getMsisdn()));
 			return 3;
 		}
 
@@ -128,26 +139,33 @@ public class ProcessUdpRequest implements Runnable {
 
 		boolean success = false;
 		AccountTxResponse txResp = cbsUtil.getBalance(req);
-		if (txResp.getBalance() > pack.getPrice()) {
-			AccountTxResponse chargResp = cbsUtil.accountTx(req, pack);
+		req.setAmount( pack.getPrice() * 100 );
+		
+		if ( txResp.getBalance() > req.getAmount() ) {
+			AccountTxResponse chargResp = cbsUtil.accountTx( req, pack );
 			if (chargResp.getCode().equals("405000000")) {
 				success = true;
 			}
 		} else {
 			// smsUtil.sendSMS(req.getMsisdn(), config.getSubLowBalanceMsgText(), pack);
+			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
+					"Low Balance -" + txResp.getBalance(), req.getTid()));
 			return 2;
 		}
 
 		if (success) {
 			Date nextRenewal = addDayInDate(pack.getValidityDays());
-			vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(), "IVR");
+			vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(), req.getChannel());
 			// vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(),
 			// pack.getValidityDays());
-			hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_SUB, "IVR");
+			hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_SUB, req.getChannel());
+			vmsReportRepo.insertIntoReports(
+					new ReportData(req.getMsisdn(), req.getAction(), 1, req.getChannel(), "success", req.getTid()));
 			return 1;
 
 		} else {
 			return 4;
+
 		}
 	}
 
@@ -160,7 +178,8 @@ public class ProcessUdpRequest implements Runnable {
 	}
 
 	public void addToHlrRquestForUnsub(AccountTxRequest req) {
-		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB  ,"IVR" );
+		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB, "IVR");
+		
 		accRepo.deleteRequest(req.getId());
 	}
 

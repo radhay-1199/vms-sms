@@ -12,11 +12,13 @@ import org.springframework.stereotype.Service;
 import vms.se.bean.HLRRequest;
 import vms.se.bean.HLRResponse;
 import vms.se.bean.PackDetails;
+import vms.se.bean.ReportData;
 import vms.se.bean.VmsUser;
 import vms.se.config.Config;
 import vms.se.config.Constants;
 import vms.se.db.HlrReqRepository;
 import vms.se.db.PackDetailRepository;
+import vms.se.db.VmsReportRepository;
 import vms.se.db.VmsUserRepository;
 import vms.se.util.HttpUtil;
 import vms.se.util.SmsUtil;
@@ -43,6 +45,9 @@ public class ProcessHLRRequest implements Runnable {
 	@Autowired
 	private PackDetailRepository packRepo;
 
+	@Autowired
+	private VmsReportRepository vmsReportRepo;
+
 	@Override
 	public void run() {
 		while (true) {
@@ -50,16 +55,22 @@ public class ProcessHLRRequest implements Runnable {
 
 				List<HLRRequest> reqList = reqRepo.getPendingRequest();
 				for (HLRRequest req : reqList) {
-					if (req.getAction() == Constants.HLR_SUB) {
+					switch (req.getAction()) {
+					case Constants.HLR_SUB:
 						processSubReq(req);
-					} else if (req.getAction() == Constants.HLR_UNSUB) {
+						break;
+					case Constants.HLR_UNSUB:
 						processUnSubReq(req);
+						break;
+
+					default:
+						log.info("Unknown Action in Process HLR Request, Action value=" + req.getAction());
+						break;
 					}
 				}
 			} catch (Exception exp) {
 				exp.printStackTrace();
 			}
-
 			try {
 				Thread.sleep(15000);
 			} catch (Exception e) {
@@ -79,12 +90,16 @@ public class ProcessHLRRequest implements Runnable {
 
 			log.info(subUri);
 
-			VmsUser user = vmsUserRepo.getUserDetails( req.getMsisdn() );
-			if(user == null) {
-				log.info("User Details not found for msisdn="+req.getMsisdn());
-				return ; 
+			VmsUser user = vmsUserRepo.getUserDetails(req.getMsisdn());
+			if (user == null) {
+
+				log.info("User Details not found for msisdn=" + req.getMsisdn());
+				vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), Constants.HLR_UNSUB, 0,
+						req.getChannel(), "Unknown User", req.getMsisdn()));
+				return;
+
 			}
-			
+
 			PackDetails pack = packRepo.getPackDetails(user.getPackId());
 
 			String respStr = httpUtil.submitRequest(subUri);
@@ -93,13 +108,18 @@ public class ProcessHLRRequest implements Runnable {
 			if (respStr != null) {
 				hlrResp = parseResponse(respStr);
 				log.info(hlrResp.toString());
-				reqRepo.deleteRequest(req.getMsisdn(), 2);
+				reqRepo.deleteRequest(req.getMsisdn(), Constants.HLR_UNSUB);
 
-				if (hlrResp.getOutputMessage() != null && hlrResp.getOutputMessage().indexOf("SUCCESS0002") != -1) {
+				if (hlrResp.getOutputMessage() != null && hlrResp.getOutputMessage().indexOf("SUCCESS") != -1) {
 					vmsUserRepo.deleteUser(req.getMsisdn());
 					smsUtil.sendSMS(req.getMsisdn(), config.getUnsubSuccessMsgText(), pack);
+					vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), Constants.HLR_UNSUB, 1,
+							req.getChannel(), "success", req.getMsisdn()));
+
 				} else {
-					log.info("Cant Understand HLR Response=" + hlrResp.getOutputMessage());
+					log.info("Invalid HLR Response=" + hlrResp.getOutputMessage());
+					vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), Constants.HLR_UNSUB, 0,
+							req.getChannel(), "Invalid HLR Response", req.getMsisdn()));
 
 				}
 
@@ -126,9 +146,7 @@ public class ProcessHLRRequest implements Runnable {
 				subUri = subUri.replaceAll("<MSISDN>", "93" + subReq.getMsisdn());
 
 			// subUri = subUri.replaceAll("<MSISDN>", subReq.getMsisdn());
-
 			log.info(subUri);
-
 			PackDetails pack = packRepo.getPackDetails(subReq.getPackId());
 			String respStr = httpUtil.submitRequest(subUri);
 
@@ -136,36 +154,41 @@ public class ProcessHLRRequest implements Runnable {
 			if (respStr != null) {
 				hlrResp = parseResponse(respStr);
 				log.info(hlrResp.toString());
-
 				// reqRepo.deleteRequest(subReq.getMsisdn(), 1);
-
 				if (hlrResp.getOutputMessage() != null
 						&& hlrResp.getOutputMessage().indexOf("Already have the service") != -1) {
 					vmsUserRepo.updateHLRStatus(subReq.getMsisdn(), 1);
-					reqRepo.deleteRequest(subReq.getMsisdn(), 1);
+					reqRepo.deleteRequest(subReq.getMsisdn(), Constants.HLR_SUB);
 					smsUtil.sendSMS(subReq.getMsisdn(), config.getSubSuccessMsgText(), pack);
-
+					vmsReportRepo.insertIntoReports(new ReportData(subReq.getMsisdn(), Constants.HLR_SUB, 0,
+							subReq.getChannel(), hlrResp.getOutputMessage(), subReq.getMsisdn()));
 					return;
 				}
 
-				if (hlrResp.getOutputCode().indexOf("SUCCESS0002") != -1) {
+				if (hlrResp.getOutputCode().indexOf("SUCCESS") != -1) {
 					vmsUserRepo.updateHLRStatus(subReq.getMsisdn(), 1);
-					reqRepo.deleteRequest(subReq.getMsisdn(), 1);
+					reqRepo.deleteRequest(subReq.getMsisdn(), Constants.HLR_SUB);
 					smsUtil.sendSMS(subReq.getMsisdn(), config.getSubSuccessMsgText(), pack);
+					vmsReportRepo.insertIntoReports(new ReportData(subReq.getMsisdn(), Constants.HLR_SUB, 1,
+							subReq.getChannel(), "success", subReq.getMsisdn()));
 
 				} else {
 
 					log.info("Failed Sub|" + hlrResp.toString());
 					Date nextRetryTime = addMinuteInDate(15);
 					reqRepo.updateStatus(subReq.getMsisdn(), hlrResp.getOutputMessage(), nextRetryTime);
+					vmsReportRepo.insertIntoReports(new ReportData(subReq.getMsisdn(), Constants.HLR_SUB, 0,
+							subReq.getChannel(), hlrResp.getOutputCode(), subReq.getMsisdn()));
 
 				}
 
 			}
+
 		} catch (Exception exp) {
 			exp.printStackTrace();
 		}
 	}
+
 	public Date addMinuteInDate(int min) {
 		Calendar cal = null;
 		try {
@@ -177,7 +200,6 @@ public class ProcessHLRRequest implements Runnable {
 		return cal.getTime();
 
 	}
-
 
 	public HLRResponse parseResponse(String resp) {
 		try {
@@ -217,4 +239,25 @@ public class ProcessHLRRequest implements Runnable {
 		}
 		return null;
 	}
+
+	public HLRResponse processRequest(String msisdn, int action) {
+		HLRResponse hlrResp = null;
+		String uri = null;
+		if (action == Constants.HLR_SUB)
+			uri = config.getSubApiURL();
+		else if (action == Constants.HLR_UNSUB)
+			uri = config.getUnSubApiURL();
+
+		if (msisdn.startsWith("93"))
+			uri = uri.replaceAll("<MSISDN>", msisdn);
+		else
+			uri = uri.replaceAll("<MSISDN>", "93" + msisdn);
+
+		String respStr = httpUtil.submitRequest(uri);
+		if (respStr != null) {
+			hlrResp = parseResponse(respStr);
+		}
+		return hlrResp;
+	}
+
 }

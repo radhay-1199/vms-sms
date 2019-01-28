@@ -22,6 +22,8 @@ C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\util\HttpUtil.java
 C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\bean\HLRResponse.java
 C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\db\AccountRequestRepository.java
 C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\service\ProcessRenewalRequest.java
+C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\bean\ReportData.java
+C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\db\VmsReportRepository.java
 C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\db\HlrReqRepository.java
 C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\service\ProcessAccountRequest.java
 C:\Users\jangr\git\vms\se\vms-se\src\main\java\vms\se\bean\AccountTxResponse.java
