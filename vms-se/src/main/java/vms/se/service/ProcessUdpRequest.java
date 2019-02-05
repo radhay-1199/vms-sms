@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import vms.se.bean.AccountTxRequest;
 import vms.se.bean.AccountTxResponse;
+import vms.se.bean.HLRResponse;
 import vms.se.bean.PackDetails;
 import vms.se.bean.ReportData;
 import vms.se.config.Config;
@@ -61,6 +62,9 @@ public class ProcessUdpRequest implements Runnable {
 	@Autowired
 	private VmsReportRepository vmsReportRepo;
 
+	@Autowired
+	private ProcessHLRRequest processHLRRequest;
+
 	@Override
 	public void run() {
 
@@ -97,7 +101,7 @@ public class ProcessUdpRequest implements Runnable {
 					String msisdn = info[1];
 					String respIp = info[2];
 					String ressPortStr = info[3];
-					
+
 					int status = processUnSubRequest(msisdn);
 					sendOverUdp(msisdn + "#" + status, respIp, Integer.parseInt(ressPortStr));
 				}
@@ -115,12 +119,11 @@ public class ProcessUdpRequest implements Runnable {
 		log.info("processUnSubRequest|" + msisdn);
 		hlrReqRepo.insertIntoHlrRequest(msisdn, "P", Constants.HLR_UNSUB, "IVR");
 		vmsReportRepo.insertIntoReports(
-				new ReportData(msisdn , Constants.UNSUB_REQ , 1, "IVR" , "success" , "API-" + System.currentTimeMillis() ));
-		return 1;
+				new ReportData(msisdn, Constants.UNSUB_REQ, 1, "IVR", "success", "API-" + System.currentTimeMillis()));
+		return 1 ;
 	}
 
 	public int processSubRequest(AccountTxRequest req) {
-
 		log.info(req.toString());
 		req.setChannel("IVR");
 
@@ -133,40 +136,52 @@ public class ProcessUdpRequest implements Runnable {
 			return 3;
 		}
 
-		if (pack.getPrice() > 0) {
-			req.setAmount(pack.getPrice() * -1);
+		HLRResponse hlrResp = processHLRRequest.processRequest(req.getMsisdn(), Constants.HLR_SUB);
+		if (hlrResp == null) {
+			log.info("HLR Response is NUll , Please Check");
+			// accRepo.deleteRequest(req.getId());
+			return -1;
 		}
 
-		boolean success = false;
-		AccountTxResponse txResp = cbsUtil.getBalance(req);
-		req.setAmount( pack.getPrice() * 100 );
+		if( hlrResp.getOutputMessage().indexOf("Already have the service") != -1) {
+			log.info("Alreay Subscriber for MCA, Resp=" + hlrResp.getOutputMessage() );
+			smsUtil.sendSMS(req.getMsisdn(), config.getMcaAlreaySubMsg() , pack);
+			return 7 ;
+		}
 		
-		if ( txResp.getBalance() > req.getAmount() ) {
-			AccountTxResponse chargResp = cbsUtil.accountTx( req, pack );
+		else if ( hlrResp.getOutputMessage().indexOf("SUCCESS") == -1 ) {
+			log.info("HLR Response is invalid for sub , Resp=" + hlrResp.getOutputMessage() );
+			//accRepo.deleteRequest(req.getId());
+			return 7;
+		}
+		
+
+		AccountTxResponse txResp = cbsUtil.getBalance(req);
+		req.setAmount(pack.getPrice() * 100);
+
+		if (txResp.getBalance() >= req.getAmount()) {
+			AccountTxResponse chargResp = cbsUtil.accountTx(req, pack);
 			if (chargResp.getCode().equals("405000000")) {
-				success = true;
+				vmsReportRepo.insertIntoReports(
+						new ReportData(req.getMsisdn(), req.getAction(), 1, req.getChannel(), "success", req.getTid()));
+				Date nextRenewal = addDayInDate(pack.getValidityDays());
+				vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(),
+						req.getChannel());
+
+				smsUtil.sendSMS(req.getMsisdn(), config.getIvrSubSuccessMsg(), pack);
+
+				// hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(),
+				// Constants.HLR_SUB, req.getChannel());
+				return 1;
 			}
 		} else {
-			// smsUtil.sendSMS(req.getMsisdn(), config.getSubLowBalanceMsgText(), pack);
+			smsUtil.sendSMS(req.getMsisdn(), config.getSubLowBalanceMsgText(), pack);
 			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
 					"Low Balance -" + txResp.getBalance(), req.getTid()));
+			processHLRRequest.processRequest(req.getMsisdn(), Constants.HLR_UNSUB);
 			return 2;
 		}
-
-		if (success) {
-			Date nextRenewal = addDayInDate(pack.getValidityDays());
-			vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(), req.getChannel());
-			// vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(),
-			// pack.getValidityDays());
-			hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_SUB, req.getChannel());
-			vmsReportRepo.insertIntoReports(
-					new ReportData(req.getMsisdn(), req.getAction(), 1, req.getChannel(), "success", req.getTid()));
-			return 1;
-
-		} else {
-			return 4;
-
-		}
+		return -1;
 	}
 
 	public void processBalanceReq(AccountTxRequest req) {
@@ -179,7 +194,7 @@ public class ProcessUdpRequest implements Runnable {
 
 	public void addToHlrRquestForUnsub(AccountTxRequest req) {
 		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB, "IVR");
-		
+
 		accRepo.deleteRequest(req.getId());
 	}
 

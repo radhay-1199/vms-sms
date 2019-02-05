@@ -53,9 +53,9 @@ public class ProcessAccountRequest implements Runnable {
 
 	@Autowired
 	private VmsReportRepository vmsReportRepo;
-	
+
 	@Autowired
-	private ProcessHLRRequest processHLRRequest ; 
+	private ProcessHLRRequest processHLRRequest;
 
 	@Override
 	public void run() {
@@ -100,11 +100,7 @@ public class ProcessAccountRequest implements Runnable {
 	}
 
 	public void processSubRequest(AccountTxRequest req) {
-
 		log.info(req.toString());
-		if (req.getAmount() > 0) {
-			req.setAmount(req.getAmount() * -1);
-		}
 
 		PackDetails pack = packRepo.getPackDetails(req.getPackId());
 		if (pack == null) {
@@ -115,67 +111,70 @@ public class ProcessAccountRequest implements Runnable {
 			accRepo.deleteRequest(req.getId());
 			return;
 		}
-		
-		/*HLRResponse hlrResp = processHLRRequest.processRequest(req.getMsisdn() , Constants.HLR_SUB );
-		if(hlrResp == null || hlrResp.getOutputCode().indexOf("SUCCESS") != -1 ) {
-			accRepo.deleteRequest(req.getId());
-			return ; 
-		}*/
-		
-		
-		boolean success = false ;
-		AccountTxResponse txResp = cbsUtil.getBalance(req);
-		req.setAmount( pack.getPrice() * 100 );
-		
-		if (txResp.getBalance() > req.getAmount()) {
 
+		HLRResponse hlrResp = processHLRRequest.processRequest(req.getMsisdn(), Constants.HLR_SUB );
+		if ( hlrResp == null) {
+			log.info("HLR Response is NUll , Please Check");
+			accRepo.deleteRequest(req.getId()) ;
+			return ;
+		}
+
+		if( hlrResp.getOutputMessage().indexOf("Already have the service") != -1) {
+			log.info("Alreay Subscriber for MCA, Resp=" + hlrResp.getOutputMessage() );
+			smsUtil.sendSMS(req.getMsisdn(), config.getMcaAlreaySubMsg() , pack);
+			accRepo.deleteRequest(req.getId());
+			return ;
+		}
+		else if ( hlrResp.getOutputMessage().indexOf("SUCCESS") == -1 ) {
+			log.info("HLR Response is invalid for sub , Resp=" + hlrResp.getOutputMessage() );
+			accRepo.deleteRequest(req.getId());
+			return ;
+		}
+		
+
+		AccountTxResponse txResp = cbsUtil.getBalance(req);
+		req.setAmount(pack.getPrice() * 100);
+		if (txResp.getBalance() >= req.getAmount()) {
 			AccountTxResponse chargResp = cbsUtil.accountTx(req, pack);
 			if (chargResp.getCode().equals("405000000")) {
-				success = true;
-			}
+				vmsReportRepo.insertIntoReports(
+						new ReportData(req.getMsisdn(), req.getAction(), 1, req.getChannel(), "success", req.getTid()));
 
+				Date nextRenewal = addDayInDate(pack.getValidityDays());
+				vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(),
+						req.getChannel());
+				
+				smsUtil.sendSMS(req.getMsisdn(), config.getSubSuccessMsgText(), pack);
+				
+				// hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(),
+				// Constants.HLR_SUB, req.getChannel());
+
+			}
 		} else {
-			
+
 			smsUtil.sendSMS(req.getMsisdn(), config.getSubLowBalanceMsgText(), pack);
 			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
 					"Low Balance -" + txResp.getBalance(), req.getTid()));
-			//processHLRRequest.processRequest(req.getMsisdn() , Constants.HLR_UNSUB );
-			
+			processHLRRequest.processRequest(req.getMsisdn(), Constants.HLR_UNSUB);
+
 		}
 
-		if (success) {
-			// accRepo.deleteRequest(req.getId());
-			vmsReportRepo.insertIntoReports(
-					new ReportData(req.getMsisdn(), req.getAction(), 1, req.getChannel(), "success", req.getTid()));
-
-			Date nextRenewal = addDayInDate(pack.getValidityDays());
-			vmsUserRepo.insertIntoUsers(req.getMsisdn(), req.getPackId(), nextRenewal, req.getLang(), req.getChannel());
-			hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_SUB, req.getChannel());
-
-		} else {
-			// Retry After Some Time
-			/*
-			 * Date nextRetryTime = new Date(System.currentTimeMillis() + 5 * 60 * 1000);
-			 * accRepo.updateStatus(req.getId(), "LOW BAL-" + txResp.getCode(),
-			 * nextRetryTime);
-			 */
-		}
 		accRepo.deleteRequest(req.getId());
 
 	}
 
 	public void processBalanceReq(AccountTxRequest req) {
-
 		log.info(req.toString());
 		AccountTxResponse txResp = cbsUtil.getBalance(req);
 		log.info(txResp.toString());
 		accRepo.deleteRequest(req.getId());
 	}
 
-	/*public void addToHlrRquestForUnsub(AccountTxRequest req) {
-		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB, req.getChannel());
-		accRepo.deleteRequest(req.getId());
-	}*/
+	/*
+	 * public void addToHlrRquestForUnsub(AccountTxRequest req) {
+	 * hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(),
+	 * Constants.HLR_UNSUB, req.getChannel()); accRepo.deleteRequest(req.getId()); }
+	 */
 
 	public Date addDayInDate(int days) {
 		Calendar cal = null;
@@ -188,6 +187,5 @@ public class ProcessAccountRequest implements Runnable {
 		return cal.getTime();
 
 	}
-	
-	
+
 }

@@ -59,6 +59,9 @@ public class Config {
 	@Value("${sub.success.msg.text}")
 	private String subSuccessMsgText;
 
+	@Value("${sub.success.msg.ivr}")
+	private String ivrSubSuccessMsg;
+
 	@Value("${sub.lowbalance.msg.text}")
 	private String subLowBalanceMsgText;
 
@@ -71,11 +74,45 @@ public class Config {
 	@Value("${unsub.success.msg.text}")
 	private String unsubSuccessMsgText;
 
+	@Value("${unsub.success.msg.ivr}")
+	private String ivrUnsubSuccessMsg;
+	
+	
+	
+	@Value("${mca.sub.msg.text}")
+	private String mcaAlreaySubMsg;
+
 	@Value("${sms.submit.url}")
 	private String smsSubmitUrl;
 
 	@Value("${api.udp.port}")
 	private int apiUdpPort;
+
+	
+	
+	public String getMcaAlreaySubMsg() {
+		return mcaAlreaySubMsg;
+	}
+
+	public void setMcaAlreaySubMsg(String mcaAlreaySubMsg) {
+		this.mcaAlreaySubMsg = mcaAlreaySubMsg;
+	}
+
+	public String getIvrSubSuccessMsg() {
+		return ivrSubSuccessMsg;
+	}
+
+	public void setIvrSubSuccessMsg(String ivrSubSuccessMsg) {
+		this.ivrSubSuccessMsg = ivrSubSuccessMsg;
+	}
+
+	public String getIvrUnsubSuccessMsg() {
+		return ivrUnsubSuccessMsg;
+	}
+
+	public void setIvrUnsubSuccessMsg(String ivrUnsubSuccessMsg) {
+		this.ivrUnsubSuccessMsg = ivrUnsubSuccessMsg;
+	}
 
 	public String getSmsSubmitUrl() {
 		return smsSubmitUrl;

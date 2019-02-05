@@ -112,7 +112,12 @@ public class ProcessHLRRequest implements Runnable {
 
 				if (hlrResp.getOutputMessage() != null && hlrResp.getOutputMessage().indexOf("SUCCESS") != -1) {
 					vmsUserRepo.deleteUser(req.getMsisdn());
-					smsUtil.sendSMS(req.getMsisdn(), config.getUnsubSuccessMsgText(), pack);
+
+					if (req.getChannel() != null && req.getChannel().equals("IVR"))
+						smsUtil.sendSMS(req.getMsisdn(), config.getIvrUnsubSuccessMsg(), pack);
+					else
+						smsUtil.sendSMS(req.getMsisdn(), config.getUnsubSuccessMsgText(), pack);
+
 					vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), Constants.HLR_UNSUB, 1,
 							req.getChannel(), "success", req.getMsisdn()));
 
@@ -241,6 +246,7 @@ public class ProcessHLRRequest implements Runnable {
 	}
 
 	public HLRResponse processRequest(String msisdn, int action) {
+
 		HLRResponse hlrResp = null;
 		String uri = null;
 		if (action == Constants.HLR_SUB)
@@ -253,9 +259,13 @@ public class ProcessHLRRequest implements Runnable {
 		else
 			uri = uri.replaceAll("<MSISDN>", "93" + msisdn);
 
+		log.info(uri);
 		String respStr = httpUtil.submitRequest(uri);
 		if (respStr != null) {
 			hlrResp = parseResponse(respStr);
+		}
+		if (hlrResp != null) {
+			log.info("HLR Resp=" + hlrResp.getOutputMessage());
 		}
 		return hlrResp;
 	}
