@@ -106,7 +106,9 @@ public class ProcessHLRRequest implements Runnable {
 
 			HLRResponse hlrResp = null;
 			if (respStr != null) {
+				
 				hlrResp = parseResponse(respStr);
+				
 				log.info(hlrResp.toString());
 				reqRepo.deleteRequest(req.getMsisdn(), Constants.HLR_UNSUB);
 

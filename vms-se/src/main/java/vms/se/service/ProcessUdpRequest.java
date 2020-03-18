@@ -104,6 +104,7 @@ public class ProcessUdpRequest implements Runnable {
 
 					int status = processUnSubRequest(msisdn);
 					sendOverUdp(msisdn + "#" + status, respIp, Integer.parseInt(ressPortStr));
+					
 				}
 			} catch (Exception exp) {
 				exp.printStackTrace();
@@ -145,7 +146,7 @@ public class ProcessUdpRequest implements Runnable {
 
 		if( hlrResp.getOutputMessage().indexOf("Already have the service") != -1) {
 			log.info("Alreay Subscriber for MCA, Resp=" + hlrResp.getOutputMessage() );
-			smsUtil.sendSMS(req.getMsisdn(), config.getMcaAlreaySubMsg() , pack);
+			smsUtil.sendSMS( req.getMsisdn(), config.getMcaAlreaySubMsg() , pack );
 			return 7 ;
 		}
 		
@@ -178,7 +179,7 @@ public class ProcessUdpRequest implements Runnable {
 			smsUtil.sendSMS(req.getMsisdn(), config.getSubLowBalanceMsgText(), pack);
 			vmsReportRepo.insertIntoReports(new ReportData(req.getMsisdn(), req.getAction(), 0, req.getChannel(),
 					"Low Balance -" + txResp.getBalance(), req.getTid()));
-			processHLRRequest.processRequest(req.getMsisdn(), Constants.HLR_UNSUB);
+			processHLRRequest.processRequest( req.getMsisdn(), Constants.HLR_UNSUB );
 			return 2;
 		}
 		return -1;

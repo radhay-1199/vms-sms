@@ -77,8 +77,6 @@ public class Config {
 	@Value("${unsub.success.msg.ivr}")
 	private String ivrUnsubSuccessMsg;
 	
-	
-	
 	@Value("${mca.sub.msg.text}")
 	private String mcaAlreaySubMsg;
 

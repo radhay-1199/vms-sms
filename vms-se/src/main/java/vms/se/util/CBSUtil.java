@@ -12,12 +12,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.huawei.bme.cbsinterface.cbs.accountmgr.AdjustAccountRequest;
+import com.huawei.bme.cbsinterface.cbs.accountmgr.AdjustAccountRequest.ModifyAcctFeeList;
 import com.huawei.bme.cbsinterface.cbs.accountmgr.CBSInterfaceAccountMgrService;
 import com.huawei.bme.cbsinterface.cbs.accountmgr.CBSInterfaceAccountMgrServicePortType;
 import com.huawei.bme.cbsinterface.cbs.accountmgr.ModifyAcctFeeType;
 import com.huawei.bme.cbsinterface.cbs.accountmgr.QueryBalanceRequest;
 import com.huawei.bme.cbsinterface.cbs.accountmgr.QueryBalanceResult;
-import com.huawei.bme.cbsinterface.cbs.accountmgr.AdjustAccountRequest.ModifyAcctFeeList;
 import com.huawei.bme.cbsinterface.cbs.accountmgrmsg.AdjustAccountRequestMsg;
 import com.huawei.bme.cbsinterface.cbs.accountmgrmsg.AdjustAccountResultMsg;
 import com.huawei.bme.cbsinterface.cbs.accountmgrmsg.QueryBalanceRequestMsg;

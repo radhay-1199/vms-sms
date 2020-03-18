@@ -92,11 +92,14 @@ public class ProcessAccountRequest implements Runnable {
 	}
 
 	public void processUnSubRequest(AccountTxRequest req) {
+		
 		log.info(req.toString());
 		hlrReqRepo.insertIntoHlrRequest(req.getMsisdn(), req.getPackId(), Constants.HLR_UNSUB, req.getChannel());
 		vmsReportRepo.insertIntoReports(
 				new ReportData(req.getMsisdn(), Constants.UNSUB_REQ, 1, req.getChannel(), "success", req.getTid()));
 		accRepo.deleteRequest(req.getId());
+		
+		
 	}
 
 	public void processSubRequest(AccountTxRequest req) {
@@ -112,7 +115,7 @@ public class ProcessAccountRequest implements Runnable {
 			return;
 		}
 
-		HLRResponse hlrResp = processHLRRequest.processRequest(req.getMsisdn(), Constants.HLR_SUB );
+		HLRResponse hlrResp = processHLRRequest.processRequest( req.getMsisdn(), Constants.HLR_SUB );
 		if ( hlrResp == null) {
 			log.info("HLR Response is NUll , Please Check");
 			accRepo.deleteRequest(req.getId()) ;
